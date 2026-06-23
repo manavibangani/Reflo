@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+supabase
+bcrypt
+python-jose
+pydantic
