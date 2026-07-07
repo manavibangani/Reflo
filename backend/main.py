@@ -1,7 +1,8 @@
 from dotenv import load_dotenv
 load_dotenv()
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 import os
 from supabase import create_client
@@ -9,6 +10,8 @@ import bcrypt
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import traceback
+import secrets
+import string
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -102,3 +105,113 @@ def verify_token(token: str):
         return payload
     except JWTError:
         return None
+
+
+# ---------------------------------------------------------------------------
+# Workspaces
+# ---------------------------------------------------------------------------
+
+bearer_scheme = HTTPBearer()
+
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme)):
+    payload = verify_token(credentials.credentials)
+    if not payload or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return {"id": payload["sub"], "email": payload.get("email")}
+
+
+class WorkspaceCreateIn(BaseModel):
+    name: str
+
+
+class WorkspaceJoinIn(BaseModel):
+    invite_code: str
+
+
+def generate_unique_invite_code(length: int = 7) -> str:
+    alphabet = string.ascii_uppercase + string.digits
+    for _ in range(20):
+        code = "".join(secrets.choice(alphabet) for _ in range(length))
+        existing = supabase.table("workspaces").select("id").eq("invite_code", code).execute()
+        if not existing.data:
+            return code
+    raise HTTPException(status_code=500, detail="Failed to generate a unique invite code")
+
+
+@app.post("/workspaces")
+def create_workspace(payload: WorkspaceCreateIn, current_user: dict = Depends(get_current_user)):
+    try:
+        name = payload.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Workspace name is required")
+
+        invite_code = generate_unique_invite_code()
+        insert = {"name": name, "invite_code": invite_code, "created_by": current_user["id"]}
+        res = supabase.table("workspaces").insert(insert).execute()
+        if not res.data:
+            raise HTTPException(status_code=500, detail="Failed to create workspace")
+        workspace = res.data[0]
+
+        supabase.table("workspace_members").insert(
+            {"workspace_id": workspace["id"], "user_id": current_user["id"]}
+        ).execute()
+
+        return workspace
+    except HTTPException:
+        raise
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/workspaces/join")
+def join_workspace(payload: WorkspaceJoinIn, current_user: dict = Depends(get_current_user)):
+    try:
+        code = payload.invite_code.strip().upper()
+        if not code:
+            raise HTTPException(status_code=400, detail="Invite code is required")
+
+        resp = supabase.table("workspaces").select("*").eq("invite_code", code).execute()
+        if not resp.data:
+            raise HTTPException(status_code=404, detail="Invalid invite code")
+        workspace = resp.data[0]
+
+        existing = (
+            supabase.table("workspace_members")
+            .select("id")
+            .eq("workspace_id", workspace["id"])
+            .eq("user_id", current_user["id"])
+            .execute()
+        )
+        if not existing.data:
+            supabase.table("workspace_members").insert(
+                {"workspace_id": workspace["id"], "user_id": current_user["id"]}
+            ).execute()
+
+        return workspace
+    except HTTPException:
+        raise
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/workspaces")
+def list_workspaces(current_user: dict = Depends(get_current_user)):
+    try:
+        memberships = (
+            supabase.table("workspace_members")
+            .select("workspace_id")
+            .eq("user_id", current_user["id"])
+            .execute()
+        )
+        workspace_ids = [m["workspace_id"] for m in (memberships.data or [])]
+        if not workspace_ids:
+            return []
+
+        resp = supabase.table("workspaces").select("*").in_("id", workspace_ids).execute()
+        return resp.data or []
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
