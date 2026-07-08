@@ -23,9 +23,7 @@ export default function Signup(){
         setError(err.detail || 'Signup failed')
         return
       }
-      const data = await res.json()
-      localStorage.setItem('token', data.access_token)
-      navigate('/')
+      navigate('/login')
     }catch(err){
       setError('Network error')
     }
