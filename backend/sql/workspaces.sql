@@ -21,3 +21,6 @@ create table if not exists workspace_members (
 
 create index if not exists workspace_members_workspace_id_idx on workspace_members(workspace_id);
 create index if not exists workspace_members_user_id_idx on workspace_members(user_id);
+
+alter table workspaces enable row level security;
+alter table workspace_members enable row level security;
