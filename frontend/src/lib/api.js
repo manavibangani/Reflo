@@ -2,7 +2,7 @@ export const API_BASE_URL = 'http://127.0.0.1:8000'
 export const WS_BASE_URL = 'ws://127.0.0.1:8000'
 
 export function authHeaders() {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
@@ -18,7 +18,7 @@ export async function apiFetch(path, options = {}) {
 }
 
 export function getCurrentUserId() {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   if (!token) return null
   try {
     const payload = token.split('.')[1]

@@ -28,7 +28,7 @@ export default function Workspace() {
         apiFetch(`/workspaces/${id}/sessions`),
       ])
       if (membersRes.status === 401 || sessionsRes.status === 401) {
-        localStorage.removeItem('token')
+        sessionStorage.removeItem('token')
         navigate('/login')
         return
       }

@@ -8,7 +8,7 @@ import SessionBoard from './pages/SessionBoard'
 import Dashboard from './pages/Dashboard'
 
 function RequireAuth({ children }) {
-  const token = localStorage.getItem('token')
+  const token = sessionStorage.getItem('token')
   if (!token) return <Navigate to="/login" replace />
   return children
 }

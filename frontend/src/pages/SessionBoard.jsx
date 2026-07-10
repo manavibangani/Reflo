@@ -36,7 +36,7 @@ export default function SessionBoard() {
       try {
         const res = await apiFetch(`/sessions/${id}`)
         if (res.status === 401) {
-          localStorage.removeItem('token')
+          sessionStorage.removeItem('token')
           navigate('/login')
           return
         }
@@ -65,7 +65,7 @@ export default function SessionBoard() {
   useEffect(() => {
     if (loading || loadError) return
 
-    const token = localStorage.getItem('token')
+    const token = sessionStorage.getItem('token')
     const ws = new WebSocket(`${WS_BASE_URL}/ws/sessions/${id}?token=${encodeURIComponent(token)}`)
     wsRef.current = ws
 

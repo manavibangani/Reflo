@@ -19,7 +19,7 @@ export default function Dashboard() {
     try {
       const res = await apiFetch(`/workspaces/${id}/dashboard`)
       if (res.status === 401) {
-        localStorage.removeItem('token')
+        sessionStorage.removeItem('token')
         navigate('/login')
         return
       }

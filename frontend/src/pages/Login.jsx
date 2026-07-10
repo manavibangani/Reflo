@@ -24,7 +24,7 @@ export default function Login(){
         return
       }
       const data = await res.json()
-      localStorage.setItem('token', data.access_token)
+      sessionStorage.setItem('token', data.access_token)
       navigate('/')
     }catch(err){
       setError('Network error')
