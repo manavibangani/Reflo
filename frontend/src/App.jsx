@@ -5,6 +5,7 @@ import Signup from './pages/Signup'
 import Home from './pages/Home'
 import Workspace from './pages/Workspace'
 import SessionBoard from './pages/SessionBoard'
+import Dashboard from './pages/Dashboard'
 
 function RequireAuth({ children }) {
   const token = localStorage.getItem('token')
@@ -25,6 +26,7 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
         <Route path="/workspace/:id" element={<RequireAuth><Workspace /></RequireAuth>} />
+        <Route path="/workspace/:id/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/sessions/:id" element={<RequireAuth><SessionBoard /></RequireAuth>} />
       </Routes>
     </Router>

@@ -95,7 +95,12 @@ export default function Workspace() {
   return (
     <div style={{ padding: 20, textAlign: 'left' }}>
       <Link to="/">&larr; Back to workspaces</Link>
-      <h2>{workspaceFromState?.name || 'Workspace'}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ margin: 0 }}>{workspaceFromState?.name || 'Workspace'}</h2>
+        <Link to={`/workspace/${id}/dashboard`} state={{ workspace: workspaceFromState }}>
+          Dashboard
+        </Link>
+      </div>
       {workspaceFromState?.invite_code && <p>Invite code: {workspaceFromState.invite_code}</p>}
 
       {loadError && <p style={{ color: 'red' }}>{loadError}</p>}

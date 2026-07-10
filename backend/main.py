@@ -563,3 +563,90 @@ async def session_websocket(websocket: WebSocket, session_id: str, token: str = 
         pass
     finally:
         manager.disconnect(session_id, websocket)
+
+
+# ---------------------------------------------------------------------------
+# Dashboard
+# ---------------------------------------------------------------------------
+
+ACTION_ITEM_COLOR = "#e9d5ff"  # purple — matches the "Purple" swatch on the retro board
+
+
+def get_card_or_404(card_id: str) -> dict:
+    resp = supabase.table("cards").select("*").eq("id", card_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return resp.data[0]
+
+
+class CardResolvedIn(BaseModel):
+    resolved: bool
+
+
+@app.get("/workspaces/{workspace_id}/dashboard")
+def get_workspace_dashboard(workspace_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        ensure_workspace_member(workspace_id, current_user["id"])
+
+        sessions = (
+            supabase.table("sessions")
+            .select("*")
+            .eq("workspace_id", workspace_id)
+            .order("created_at", desc=True)
+            .execute()
+        ).data or []
+
+        session_names = {s["id"]: s["name"] for s in sessions}
+        past_sessions = [s for s in sessions if s["status"] == "ended"]
+
+        action_items = []
+        if sessions:
+            cards = (
+                supabase.table("cards")
+                .select("*")
+                .eq("color", ACTION_ITEM_COLOR)
+                .in_("session_id", list(session_names.keys()))
+                .order("created_at", desc=True)
+                .execute()
+            ).data or []
+            for c in cards:
+                action_items.append(
+                    {
+                        "id": c["id"],
+                        "text": c["text"],
+                        "resolved": c.get("resolved", False),
+                        "session_id": c["session_id"],
+                        "session_name": session_names.get(c["session_id"], "Unknown session"),
+                        "created_at": c["created_at"],
+                    }
+                )
+
+        return {"past_sessions": past_sessions, "action_items": action_items}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.patch("/cards/{card_id}/resolved")
+def set_card_resolved(
+    card_id: str, payload: CardResolvedIn, current_user: dict = Depends(get_current_user)
+):
+    try:
+        card = get_card_or_404(card_id)
+        session = get_session_or_404(card["session_id"])
+        ensure_workspace_member(session["workspace_id"], current_user["id"])
+
+        res = (
+            supabase.table("cards")
+            .update({"resolved": payload.resolved})
+            .eq("id", card_id)
+            .execute()
+        )
+        return res.data[0] if res.data else {**card, "resolved": payload.resolved}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
