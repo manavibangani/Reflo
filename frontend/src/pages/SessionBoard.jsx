@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { apiFetch, getCurrentUserId, WS_BASE_URL } from '../lib/api'
-
-const COLORS = [
-  { value: '#fef08a', label: 'Yellow' },
-  { value: '#bbf7d0', label: 'Green' },
-  { value: '#fecaca', label: 'Red' },
-  { value: '#bfdbfe', label: 'Blue' },
-  { value: '#e9d5ff', label: 'Purple' },
-]
+import { COLORS } from '../lib/colors'
 
 export default function SessionBoard() {
   const { id } = useParams()
@@ -24,8 +17,21 @@ export default function SessionBoard() {
 
   const [cardText, setCardText] = useState('')
   const [cardColor, setCardColor] = useState(COLORS[0].value)
+  const [openMenuCardId, setOpenMenuCardId] = useState(null)
 
   const wsRef = useRef(null)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    if (!openMenuCardId) return
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setOpenMenuCardId(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openMenuCardId])
 
   useEffect(() => {
     let cancelled = false
@@ -83,6 +89,8 @@ export default function SessionBoard() {
             c.id === msg.card_id ? { ...c, votes: msg.votes, vote_count: msg.vote_count } : c
           )
         )
+      } else if (msg.type === 'card_deleted') {
+        setCards((prev) => prev.filter((c) => c.id !== msg.card_id))
       } else if (msg.type === 'session_ended') {
         setSession(msg.session)
       } else if (msg.type === 'error') {
@@ -110,6 +118,18 @@ export default function SessionBoard() {
     sendMessage({ type: 'toggle_vote', card_id: cardId })
   }
 
+  async function handleDeleteCard(cardId) {
+    try {
+      const res = await apiFetch(`/cards/${cardId}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setWsError(err.detail || 'Failed to delete card')
+      }
+    } catch {
+      setWsError('Failed to delete card')
+    }
+  }
+
   async function handleEndSession() {
     try {
       const res = await apiFetch(`/sessions/${id}/end`, { method: 'POST' })
@@ -126,6 +146,10 @@ export default function SessionBoard() {
 
   const isCreator = session && session.created_by === currentUserId
   const isActive = session && session.status === 'active'
+
+  function colorLabel(c) {
+    return session?.color_labels?.[c.value]?.trim() || c.label
+  }
 
   return (
     <div style={{ padding: 20, textAlign: 'left' }}>
@@ -150,27 +174,34 @@ export default function SessionBoard() {
             onChange={(e) => setCardText(e.target.value)}
             style={{ width: 280 }}
           />
-          {COLORS.map((c) => (
-            <label key={c.value} style={{ marginLeft: 10 }}>
-              <input
-                type="radio"
-                name="color"
-                checked={cardColor === c.value}
-                onChange={() => setCardColor(c.value)}
-              />
-              <span
-                style={{
-                  display: 'inline-block',
-                  width: 14,
-                  height: 14,
-                  background: c.value,
-                  borderRadius: 3,
-                  marginLeft: 4,
-                  verticalAlign: 'middle',
-                }}
-              />
-            </label>
-          ))}
+          <select
+            value={cardColor}
+            onChange={(e) => setCardColor(e.target.value)}
+            style={{ marginLeft: 10, verticalAlign: 'middle' }}
+          >
+            {COLORS.map((c) => {
+              const customLabel = session?.color_labels?.[c.value]?.trim()
+              const text = customLabel ? `${c.emoji} ${c.label} — ${customLabel}` : `${c.emoji} ${c.label}`
+              return (
+                <option key={c.value} value={c.value}>
+                  {text}
+                </option>
+              )
+            })}
+          </select>
+          <span
+            title={colorLabel(COLORS.find((c) => c.value === cardColor))}
+            style={{
+              display: 'inline-block',
+              width: 14,
+              height: 14,
+              background: cardColor,
+              borderRadius: 3,
+              marginLeft: 8,
+              verticalAlign: 'middle',
+              border: '1px solid var(--border)',
+            }}
+          />
           <button type="submit" style={{ marginLeft: 12 }}>
             Add card
           </button>
@@ -189,6 +220,8 @@ export default function SessionBoard() {
       >
         {cards.map((card) => {
           const hasVoted = currentUserId && card.votes?.includes(currentUserId)
+          const isOwnCard = card.created_by === currentUserId
+          const menuOpen = openMenuCardId === card.id
           return (
             <div
               key={card.id}
@@ -199,9 +232,69 @@ export default function SessionBoard() {
                 width: 200,
                 boxSizing: 'border-box',
                 color: '#1a1a1a',
+                position: 'relative',
               }}
             >
-              <p style={{ margin: 0, wordBreak: 'break-word' }}>{card.text}</p>
+              {isOwnCard && (
+                <div
+                  ref={menuOpen ? menuRef : null}
+                  style={{ position: 'absolute', top: 6, right: 6 }}
+                >
+                  <button
+                    onClick={() => setOpenMenuCardId(menuOpen ? null : card.id)}
+                    aria-label="Card options"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 16,
+                      lineHeight: 1,
+                      padding: '2px 6px',
+                      color: '#1a1a1a',
+                    }}
+                  >
+                    ⋮
+                  </button>
+                  {menuOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        background: 'var(--bg, #fff)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 6,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                        zIndex: 10,
+                        minWidth: 130,
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setOpenMenuCardId(null)
+                          handleDeleteCard(card.id)
+                        }}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '6px 10px',
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: '#1a1a1a',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        Delete card
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <p style={{ margin: 0, wordBreak: 'break-word', paddingRight: isOwnCard ? 18 : 0 }}>
+                {card.text}
+              </p>
               <button
                 onClick={() => handleToggleVote(card.id)}
                 disabled={!isActive}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
 import { apiFetch, getCurrentUserId } from '../lib/api'
+import { COLORS } from '../lib/colors'
 
 export default function Workspace() {
   const { id } = useParams()
@@ -16,6 +17,7 @@ export default function Workspace() {
 
   const [sessionName, setSessionName] = useState('')
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
+  const [colorLabels, setColorLabels] = useState({})
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
 
@@ -62,6 +64,10 @@ export default function Workspace() {
     )
   }
 
+  function updateColorLabel(colorValue, label) {
+    setColorLabels((prev) => ({ ...prev, [colorValue]: label }))
+  }
+
   async function handleCreateSession(e) {
     e.preventDefault()
     if (!sessionName.trim()) return
@@ -70,7 +76,11 @@ export default function Workspace() {
     try {
       const res = await apiFetch(`/workspaces/${id}/sessions`, {
         method: 'POST',
-        body: JSON.stringify({ name: sessionName.trim(), member_ids: selectedMemberIds }),
+        body: JSON.stringify({
+          name: sessionName.trim(),
+          member_ids: selectedMemberIds,
+          color_labels: colorLabels,
+        }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -80,6 +90,7 @@ export default function Workspace() {
       const session = await res.json()
       setSessionName('')
       setSelectedMemberIds([])
+      setColorLabels({})
       await loadData()
       navigate(`/sessions/${session.id}`)
     } catch {
@@ -125,6 +136,30 @@ export default function Workspace() {
                 />
                 {m.email || m.user_id}
               </label>
+            ))}
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <p style={{ margin: '4px 0' }}>What does each color mean? (optional)</p>
+            {COLORS.map((c) => (
+              <div key={c.value} style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 14,
+                    height: 14,
+                    background: c.value,
+                    borderRadius: 3,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ width: 60, marginLeft: 8, fontSize: 13 }}>{c.label}</span>
+                <input
+                  placeholder={`e.g. "${c.label === 'Purple' ? 'Action item' : 'Went well'}"`}
+                  value={colorLabels[c.value] || ''}
+                  onChange={(e) => updateColorLabel(c.value, e.target.value)}
+                  style={{ marginLeft: 8, flex: 1, maxWidth: 220 }}
+                />
+              </div>
             ))}
           </div>
           <button type="submit" disabled={creating} style={{ marginTop: 10 }}>
