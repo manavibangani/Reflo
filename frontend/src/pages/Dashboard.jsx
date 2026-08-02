@@ -65,98 +65,71 @@ export default function Dashboard() {
     }
   }
 
-  if (loading) return <div style={{ padding: 20 }}>Loading...</div>
-  if (error) return <div style={{ padding: 20, color: 'red' }}>{error}</div>
+  if (loading) return <div className="page">Loading...</div>
+  if (error) return <div className="page error-text">{error}</div>
 
   return (
-    <div style={{ padding: 20, textAlign: 'left' }}>
-      <Link to={`/workspace/${id}`} state={{ workspace: workspaceFromState }}>
+    <div className="page">
+      <Link to={`/workspace/${id}`} state={{ workspace: workspaceFromState }} className="back-link">
         &larr; Back to workspace
       </Link>
-      <h2>{workspaceFromState?.name ? `${workspaceFromState.name} — Dashboard` : 'Dashboard'}</h2>
+      <h2 style={{ marginTop: 10 }}>
+        {workspaceFromState?.name ? `${workspaceFromState.name} — Dashboard` : 'Dashboard'}
+      </h2>
 
-      <section style={{ marginTop: 24 }}>
-        <h3>Past sessions</h3>
-        {pastSessions.length === 0 && <p>No sessions have ended yet.</p>}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+      <section className="section">
+        <h3 className="section-title">Past sessions</h3>
+        {pastSessions.length === 0 && <p className="empty-text">No sessions have ended yet.</p>}
+        <div className="dash-grid">
           {pastSessions.map((s) => (
-            <li
-              key={s.id}
-              style={{
-                padding: 12,
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                marginBottom: 8,
-              }}
-            >
+            <div key={s.id} className="dash-card">
               <strong>{s.name}</strong>
-              <div style={{ fontSize: 13, color: 'var(--text)' }}>
+              <div className="muted-text" style={{ marginTop: 4 }}>
                 {new Date(s.created_at).toLocaleString()}
               </div>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
 
-      <section style={{ marginTop: 24 }}>
-        <h3>Action items</h3>
-        {actionItems.length === 0 && <p>No action items yet.</p>}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+      <section className="section">
+        <h3 className="section-title">Action items</h3>
+        {actionItems.length === 0 && <p className="empty-text">No action items yet.</p>}
+        <div className="dash-grid">
           {actionItems.map((item) => (
-            <li
-              key={item.id}
-              style={{
-                padding: 12,
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                marginBottom: 8,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                opacity: item.resolved ? 0.6 : 1,
-              }}
-            >
+            <div key={item.id} className={`dash-card action-item ${item.resolved ? 'resolved' : ''}`}>
               <div>
-                <div style={{ textDecoration: item.resolved ? 'line-through' : 'none' }}>
+                <div className={item.resolved ? 'action-item-text resolved' : ''}>
                   {item.text}
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text)' }}>From: {item.session_name}</div>
+                <div className="muted-text" style={{ marginTop: 4 }}>From: {item.session_name}</div>
               </div>
-              <label>
+              <label className="checkbox-row" style={{ marginBottom: 0 }}>
                 <input
                   type="checkbox"
                   checked={item.resolved}
                   onChange={() => toggleResolved(item)}
-                  style={{ marginRight: 6 }}
                 />
                 Resolved
               </label>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
 
-      <section style={{ marginTop: 24 }}>
-        <h3>AI summaries</h3>
-        {pastSessions.length === 0 && <p>No sessions have ended yet.</p>}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+      <section className="section">
+        <h3 className="section-title">AI summaries</h3>
+        {pastSessions.length === 0 && <p className="empty-text">No sessions have ended yet.</p>}
+        <div className="dash-grid">
           {pastSessions.map((s) => (
-            <li
-              key={s.id}
-              style={{
-                padding: 12,
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                marginBottom: 8,
-              }}
-            >
+            <div key={s.id} className="dash-card">
               <strong>{s.name}</strong>
-              <p style={{ margin: '6px 0 0', color: s.summary ? 'inherit' : 'var(--text)' }}>
+              <p className={s.summary ? 'summary-text' : 'summary-text muted-text'}>
                 {s.summary || 'No summary generated yet.'}
               </p>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </section>
     </div>
   )

@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { apiFetch, getCurrentUserId, WS_BASE_URL } from '../lib/api'
 import { COLORS } from '../lib/colors'
 
+const REACTION_EMOJIS = ['👍', '❤️', '😂', '🔥', '💡']
+
 export default function SessionBoard() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -89,6 +91,10 @@ export default function SessionBoard() {
             c.id === msg.card_id ? { ...c, votes: msg.votes, vote_count: msg.vote_count } : c
           )
         )
+      } else if (msg.type === 'reaction_updated') {
+        setCards((prev) =>
+          prev.map((c) => (c.id === msg.card_id ? { ...c, reactions: msg.reactions } : c))
+        )
       } else if (msg.type === 'card_deleted') {
         setCards((prev) => prev.filter((c) => c.id !== msg.card_id))
       } else if (msg.type === 'session_ended') {
@@ -118,6 +124,10 @@ export default function SessionBoard() {
     sendMessage({ type: 'toggle_vote', card_id: cardId })
   }
 
+  function handleToggleReaction(cardId, emoji) {
+    sendMessage({ type: 'toggle_reaction', card_id: cardId, emoji })
+  }
+
   async function handleDeleteCard(cardId) {
     try {
       const res = await apiFetch(`/cards/${cardId}`, { method: 'DELETE' })
@@ -141,8 +151,8 @@ export default function SessionBoard() {
     }
   }
 
-  if (loading) return <div style={{ padding: 20 }}>Loading...</div>
-  if (loadError) return <div style={{ padding: 20, color: 'red' }}>{loadError}</div>
+  if (loading) return <div className="page">Loading...</div>
+  if (loadError) return <div className="page error-text">{loadError}</div>
 
   const isCreator = session && session.created_by === currentUserId
   const isActive = session && session.status === 'active'
@@ -152,32 +162,37 @@ export default function SessionBoard() {
   }
 
   return (
-    <div style={{ padding: 20, textAlign: 'left' }}>
-      <Link to="/">&larr; Back to workspaces</Link>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+    <div className="page">
+      <Link to="/" className="back-link">&larr; Back to workspaces</Link>
+      <div className="page-header" style={{ marginTop: 10 }}>
         <h2 style={{ margin: 0 }}>{session?.name}</h2>
-        <div>
-          <span style={{ marginRight: 12, fontSize: 13, color: connected ? 'green' : 'red' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span className={`connection-status ${connected ? 'live' : 'offline'}`}>
             {connected ? 'Live' : 'Disconnected'}
           </span>
-          {isCreator && isActive && <button onClick={handleEndSession}>End session</button>}
+          {isCreator && isActive && (
+            <button onClick={handleEndSession} className="btn btn-secondary btn-sm">End session</button>
+          )}
         </div>
       </div>
-      <p style={{ color: 'var(--text)' }}>Status: {session?.status}</p>
-      {wsError && <p style={{ color: 'red' }}>{wsError}</p>}
+      <p className="muted-text" style={{ marginTop: 4 }}>
+        Status: <span className={`badge ${isActive ? '' : 'badge-ended'}`}>{session?.status}</span>
+      </p>
+      {wsError && <p className="error-text">{wsError}</p>}
 
       {isActive ? (
-        <form onSubmit={handleAddCard} style={{ marginTop: 16 }}>
+        <form onSubmit={handleAddCard} className="board-toolbar">
           <input
+            className="input"
             placeholder="Add a card..."
             value={cardText}
             onChange={(e) => setCardText(e.target.value)}
-            style={{ width: 280 }}
           />
           <select
+            className="input"
             value={cardColor}
             onChange={(e) => setCardColor(e.target.value)}
-            style={{ marginLeft: 10, verticalAlign: 'middle' }}
+            style={{ width: 'auto' }}
           >
             {COLORS.map((c) => {
               const customLabel = session?.color_labels?.[c.value]?.trim()
@@ -191,99 +206,42 @@ export default function SessionBoard() {
           </select>
           <span
             title={colorLabel(COLORS.find((c) => c.value === cardColor))}
-            style={{
-              display: 'inline-block',
-              width: 14,
-              height: 14,
-              background: cardColor,
-              borderRadius: 3,
-              marginLeft: 8,
-              verticalAlign: 'middle',
-              border: '1px solid var(--border)',
-            }}
+            className="color-swatch"
+            style={{ background: cardColor, width: 16, height: 16 }}
           />
-          <button type="submit" style={{ marginLeft: 12 }}>
+          <button type="submit" className="btn btn-primary">
             Add card
           </button>
         </form>
       ) : (
-        <p style={{ marginTop: 16, fontStyle: 'italic' }}>This session has ended.</p>
+        <p className="muted-text" style={{ marginTop: 16, fontStyle: 'italic' }}>This session has ended.</p>
       )}
 
-      <div
-        style={{
-          marginTop: 20,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
+      <div className="board-grid">
         {cards.map((card) => {
           const hasVoted = currentUserId && card.votes?.includes(currentUserId)
           const isOwnCard = card.created_by === currentUserId
           const menuOpen = openMenuCardId === card.id
           return (
-            <div
-              key={card.id}
-              style={{
-                background: card.color,
-                borderRadius: 8,
-                padding: 12,
-                width: 200,
-                boxSizing: 'border-box',
-                color: '#1a1a1a',
-                position: 'relative',
-              }}
-            >
+            <div key={card.id} className="retro-card" style={{ borderLeftColor: card.color }}>
               {isOwnCard && (
                 <div
                   ref={menuOpen ? menuRef : null}
-                  style={{ position: 'absolute', top: 6, right: 6 }}
+                  className="retro-card-menu-anchor"
                 >
                   <button
                     onClick={() => setOpenMenuCardId(menuOpen ? null : card.id)}
                     aria-label="Card options"
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 16,
-                      lineHeight: 1,
-                      padding: '2px 6px',
-                      color: '#1a1a1a',
-                    }}
+                    className="retro-card-menu-btn"
                   >
                     ⋮
                   </button>
                   {menuOpen && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '100%',
-                        right: 0,
-                        background: 'var(--bg, #fff)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 6,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                        zIndex: 10,
-                        minWidth: 130,
-                      }}
-                    >
+                    <div className="retro-card-menu">
                       <button
                         onClick={() => {
                           setOpenMenuCardId(null)
                           handleDeleteCard(card.id)
-                        }}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '6px 10px',
-                          background: 'transparent',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: '#1a1a1a',
-                          whiteSpace: 'nowrap',
                         }}
                       >
                         Delete card
@@ -292,16 +250,32 @@ export default function SessionBoard() {
                   )}
                 </div>
               )}
-              <p style={{ margin: 0, wordBreak: 'break-word', paddingRight: isOwnCard ? 18 : 0 }}>
-                {card.text}
-              </p>
+              <p className="retro-card-text">{card.text}</p>
               <button
                 onClick={() => handleToggleVote(card.id)}
                 disabled={!isActive}
-                style={{ marginTop: 10, fontWeight: hasVoted ? 'bold' : 'normal' }}
+                className={`vote-btn ${hasVoted ? 'voted' : ''}`}
               >
                 {hasVoted ? 'Unvote' : 'Vote'} ({card.vote_count || 0})
               </button>
+              <div className="reaction-row">
+                {REACTION_EMOJIS.map((emoji) => {
+                  const reactors = card.reactions?.[emoji] || []
+                  const reacted = currentUserId && reactors.includes(currentUserId)
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      className={`reaction-btn ${reacted ? 'reacted' : ''}`}
+                      onClick={() => handleToggleReaction(card.id, emoji)}
+                      disabled={!isActive}
+                    >
+                      <span>{emoji}</span>
+                      {reactors.length > 0 && <span className="reaction-count">{reactors.length}</span>}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )
         })}

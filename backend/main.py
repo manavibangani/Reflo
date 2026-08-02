@@ -276,9 +276,14 @@ def get_session_or_404(session_id: str) -> dict:
     return resp.data[0]
 
 
+CARD_COLORS = {"#bbf7d0", "#fef08a", "#fecaca", "#bfdbfe", "#e9d5ff", "#fbcfe8"}
+REACTION_EMOJIS = {"👍", "❤️", "😂", "🔥", "💡"}
+
+
 class SessionCreateIn(BaseModel):
     name: str
     member_ids: list[str] = []
+    color_labels: dict[str, str] = {}
 
 
 class SessionMembersIn(BaseModel):
@@ -326,11 +331,18 @@ def create_session(
         for uid in member_ids:
             ensure_workspace_member(workspace_id, uid)
 
+        color_labels = {
+            color: label.strip()
+            for color, label in payload.color_labels.items()
+            if color in CARD_COLORS and label and label.strip()
+        }
+
         insert = {
             "workspace_id": workspace_id,
             "name": name,
             "created_by": current_user["id"],
             "status": "active",
+            "color_labels": color_labels,
         }
         res = supabase.table("sessions").insert(insert).execute()
         if not res.data:
@@ -423,9 +435,22 @@ def get_session_detail(session_id: str, current_user: dict = Depends(get_current
             for v in votes:
                 vote_map.setdefault(v["card_id"], []).append(v["user_id"])
 
+        reaction_map: dict[str, dict[str, list[str]]] = {}
+        if cards:
+            reactions = (
+                supabase.table("card_reactions")
+                .select("card_id,user_id,emoji")
+                .in_("card_id", [c["id"] for c in cards])
+                .execute()
+            ).data or []
+            for r in reactions:
+                by_emoji = reaction_map.setdefault(r["card_id"], {})
+                by_emoji.setdefault(r["emoji"], []).append(r["user_id"])
+
         for c in cards:
             c["votes"] = vote_map.get(c["id"], [])
             c["vote_count"] = len(c["votes"])
+            c["reactions"] = reaction_map.get(c["id"], {})
 
         members = (
             supabase.table("session_members").select("user_id").eq("session_id", session_id).execute()
@@ -516,6 +541,7 @@ async def session_websocket(websocket: WebSocket, session_id: str, token: str = 
                 card = res.data[0]
                 card["votes"] = []
                 card["vote_count"] = 0
+                card["reactions"] = {}
                 await manager.broadcast(session_id, {"type": "card_added", "card": card})
 
             elif msg_type == "toggle_vote":
@@ -555,6 +581,53 @@ async def session_websocket(websocket: WebSocket, session_id: str, token: str = 
                     {"type": "vote_updated", "card_id": card_id, "votes": voters, "vote_count": len(voters)},
                 )
 
+            elif msg_type == "toggle_reaction":
+                card_id = data.get("card_id")
+                emoji = data.get("emoji")
+                if not card_id or emoji not in REACTION_EMOJIS:
+                    await websocket.send_json(
+                        {"type": "error", "message": "card_id and a valid emoji are required"}
+                    )
+                    continue
+
+                existing = await run_in_threadpool(
+                    lambda: supabase.table("card_reactions")
+                    .select("id")
+                    .eq("card_id", card_id)
+                    .eq("user_id", user_id)
+                    .eq("emoji", emoji)
+                    .execute()
+                )
+                if existing.data:
+                    await run_in_threadpool(
+                        lambda: supabase.table("card_reactions")
+                        .delete()
+                        .eq("card_id", card_id)
+                        .eq("user_id", user_id)
+                        .eq("emoji", emoji)
+                        .execute()
+                    )
+                else:
+                    await run_in_threadpool(
+                        lambda: supabase.table("card_reactions")
+                        .insert({"card_id": card_id, "user_id": user_id, "emoji": emoji})
+                        .execute()
+                    )
+
+                reactions_resp = await run_in_threadpool(
+                    lambda: supabase.table("card_reactions")
+                    .select("user_id,emoji")
+                    .eq("card_id", card_id)
+                    .execute()
+                )
+                grouped: dict[str, list[str]] = {}
+                for r in reactions_resp.data or []:
+                    grouped.setdefault(r["emoji"], []).append(r["user_id"])
+                await manager.broadcast(
+                    session_id,
+                    {"type": "reaction_updated", "card_id": card_id, "reactions": grouped},
+                )
+
             else:
                 await websocket.send_json(
                     {"type": "error", "message": f"Unknown message type: {msg_type}"}
@@ -577,6 +650,26 @@ def get_card_or_404(card_id: str) -> dict:
     if not resp.data:
         raise HTTPException(status_code=404, detail="Card not found")
     return resp.data[0]
+
+
+@app.delete("/cards/{card_id}")
+async def delete_card(card_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        card = await run_in_threadpool(get_card_or_404, card_id)
+        if card["created_by"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Only the card creator can delete this card")
+
+        await run_in_threadpool(
+            lambda: supabase.table("cards").delete().eq("id", card_id).execute()
+        )
+
+        await manager.broadcast(card["session_id"], {"type": "card_deleted", "card_id": card_id})
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 class CardResolvedIn(BaseModel):

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
@@ -30,20 +30,35 @@ export default function Signup(){
   }
 
   return (
-    <div style={{padding:20}}>
-      <h2>Signup</h2>
-      <form onSubmit={submit}>
-        <div>
-          <label>Email</label>
-          <input value={email} onChange={e=>setEmail(e.target.value)} />
-        </div>
-        <div>
-          <label>Password</label>
-          <input type="password" value={password} onChange={e=>setPassword(e.target.value)} />
-        </div>
-        <button type="submit">Create account</button>
-        {error && <p style={{color:'red'}}>{error}</p>}
-      </form>
+    <div className="auth-shell">
+      <div className="auth-card">
+        <h2 className="auth-title">Create your account</h2>
+        <p className="auth-subtitle">Start running better retros with your team</p>
+        <form onSubmit={submit}>
+          <div className="field">
+            <label className="field-label">Email</label>
+            <input
+              className="input"
+              value={email}
+              onChange={e=>setEmail(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label">Password</label>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={e=>setPassword(e.target.value)}
+            />
+          </div>
+          <button type="submit" className="btn btn-primary auth-submit">Create account</button>
+          {error && <p className="error-text">{error}</p>}
+        </form>
+        <p className="auth-footer">
+          Already have an account? <Link to="/login">Log in →</Link>
+        </p>
+      </div>
     </div>
   )
 }

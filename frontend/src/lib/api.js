@@ -17,14 +17,21 @@ export async function apiFetch(path, options = {}) {
   })
 }
 
-export function getCurrentUserId() {
+function decodeToken() {
   const token = sessionStorage.getItem('token')
   if (!token) return null
   try {
     const payload = token.split('.')[1]
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    return decoded.sub || null
+    return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
   } catch {
     return null
   }
+}
+
+export function getCurrentUserId() {
+  return decodeToken()?.sub || null
+}
+
+export function getCurrentUserEmail() {
+  return decodeToken()?.email || null
 }

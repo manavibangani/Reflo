@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom'
 import { apiFetch, getCurrentUserId } from '../lib/api'
-import { COLORS } from '../lib/colors'
 
 export default function Workspace() {
   const { id } = useParams()
@@ -17,7 +16,6 @@ export default function Workspace() {
 
   const [sessionName, setSessionName] = useState('')
   const [selectedMemberIds, setSelectedMemberIds] = useState([])
-  const [colorLabels, setColorLabels] = useState({})
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState(null)
 
@@ -64,10 +62,6 @@ export default function Workspace() {
     )
   }
 
-  function updateColorLabel(colorValue, label) {
-    setColorLabels((prev) => ({ ...prev, [colorValue]: label }))
-  }
-
   async function handleCreateSession(e) {
     e.preventDefault()
     if (!sessionName.trim()) return
@@ -79,7 +73,6 @@ export default function Workspace() {
         body: JSON.stringify({
           name: sessionName.trim(),
           member_ids: selectedMemberIds,
-          color_labels: colorLabels,
         }),
       })
       if (!res.ok) {
@@ -90,7 +83,6 @@ export default function Workspace() {
       const session = await res.json()
       setSessionName('')
       setSelectedMemberIds([])
-      setColorLabels({})
       await loadData()
       navigate(`/sessions/${session.id}`)
     } catch {
@@ -104,110 +96,85 @@ export default function Workspace() {
   const pastSessions = sessions.filter((s) => s.status !== 'active')
 
   return (
-    <div style={{ padding: 20, textAlign: 'left' }}>
-      <Link to="/">&larr; Back to workspaces</Link>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="page">
+      <Link to="/" className="back-link">&larr; Back to workspaces</Link>
+      <div className="page-header" style={{ marginTop: 10 }}>
         <h2 style={{ margin: 0 }}>{workspaceFromState?.name || 'Workspace'}</h2>
-        <Link to={`/workspace/${id}/dashboard`} state={{ workspace: workspaceFromState }}>
+        <Link to={`/workspace/${id}/dashboard`} state={{ workspace: workspaceFromState }} className="navbar-link">
           Dashboard
         </Link>
       </div>
-      {workspaceFromState?.invite_code && <p>Invite code: {workspaceFromState.invite_code}</p>}
+      {workspaceFromState?.invite_code && (
+        <p className="muted-text" style={{ marginTop: 6 }}>Invite code: {workspaceFromState.invite_code}</p>
+      )}
 
-      {loadError && <p style={{ color: 'red' }}>{loadError}</p>}
+      {loadError && <p className="error-text">{loadError}</p>}
 
-      <section style={{ marginTop: 24 }}>
-        <h3>Start a retro session</h3>
-        <form onSubmit={handleCreateSession}>
-          <input
-            placeholder="Session name"
-            value={sessionName}
-            onChange={(e) => setSessionName(e.target.value)}
-          />
-          <div style={{ marginTop: 10 }}>
-            <p style={{ margin: '4px 0' }}>Include members (you're always included):</p>
-            {members.filter((m) => m.user_id !== currentUserId).map((m) => (
-              <label key={m.user_id} style={{ display: 'block', marginBottom: 4 }}>
-                <input
-                  type="checkbox"
-                  checked={selectedMemberIds.includes(m.user_id)}
-                  onChange={() => toggleMember(m.user_id)}
-                  style={{ marginRight: 6 }}
-                />
-                {m.email || m.user_id}
-              </label>
-            ))}
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <p style={{ margin: '4px 0' }}>What does each color mean? (optional)</p>
-            {COLORS.map((c) => (
-              <div key={c.value} style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 14,
-                    height: 14,
-                    background: c.value,
-                    borderRadius: 3,
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ width: 60, marginLeft: 8, fontSize: 13 }}>{c.label}</span>
-                <input
-                  placeholder={`e.g. "${c.label === 'Purple' ? 'Action item' : 'Went well'}"`}
-                  value={colorLabels[c.value] || ''}
-                  onChange={(e) => updateColorLabel(c.value, e.target.value)}
-                  style={{ marginLeft: 8, flex: 1, maxWidth: 220 }}
-                />
-              </div>
-            ))}
-          </div>
-          <button type="submit" disabled={creating} style={{ marginTop: 10 }}>
-            {creating ? 'Creating...' : 'Create session'}
-          </button>
-          {createError && <p style={{ color: 'red' }}>{createError}</p>}
-        </form>
+      <section className="section">
+        <h3 className="section-title">Start a retro session</h3>
+        <div className="card">
+          <form onSubmit={handleCreateSession}>
+            <div className="field">
+              <input
+                className="input"
+                placeholder="Session name"
+                value={sessionName}
+                onChange={(e) => setSessionName(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label className="field-label">Include members (you're always included)</label>
+              {members.filter((m) => m.user_id !== currentUserId).map((m) => (
+                <label key={m.user_id} className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={selectedMemberIds.includes(m.user_id)}
+                    onChange={() => toggleMember(m.user_id)}
+                  />
+                  {m.email || m.user_id}
+                </label>
+              ))}
+            </div>
+            <button type="submit" disabled={creating} className="btn btn-primary">
+              {creating ? 'Creating...' : 'Create session'}
+            </button>
+            {createError && <p className="error-text">{createError}</p>}
+          </form>
+        </div>
       </section>
 
-      <section style={{ marginTop: 24 }}>
-        <h3>Active sessions</h3>
-        {loading && <p>Loading...</p>}
-        {!loading && activeSessions.length === 0 && <p>No active sessions.</p>}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+      <section className="section">
+        <h3 className="section-title">Active sessions</h3>
+        {loading && <p className="muted-text">Loading...</p>}
+        {!loading && activeSessions.length === 0 && <p className="empty-text">No active sessions.</p>}
+        <div className="session-card-grid">
           {activeSessions.map((s) => (
-            <SessionRow key={s.id} session={s} />
+            <SessionCard key={s.id} session={s} />
           ))}
-        </ul>
+        </div>
       </section>
 
-      <section style={{ marginTop: 24 }}>
-        <h3>Past sessions</h3>
-        {!loading && pastSessions.length === 0 && <p>No past sessions yet.</p>}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+      <section className="section">
+        <h3 className="section-title">Past sessions</h3>
+        {!loading && pastSessions.length === 0 && <p className="empty-text">No past sessions yet.</p>}
+        <div className="session-card-grid">
           {pastSessions.map((s) => (
-            <SessionRow key={s.id} session={s} />
+            <SessionCard key={s.id} session={s} />
           ))}
-        </ul>
+        </div>
       </section>
     </div>
   )
 }
 
-function SessionRow({ session }) {
+function SessionCard({ session }) {
   return (
-    <li
-      style={{
-        padding: 12,
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        marginBottom: 8,
-      }}
-    >
-      <strong>{session.name}</strong>
-      <span style={{ marginLeft: 8, fontSize: 13, color: 'var(--text)' }}>({session.status})</span>
-      <div style={{ marginTop: 6 }}>
-        <Link to={`/sessions/${session.id}`}>Join board &rarr;</Link>
+    <Link to={`/sessions/${session.id}`} className="session-card">
+      <div className="session-card-top">
+        <strong>{session.name}</strong>
+        <span className={`badge ${session.status === 'ended' ? 'badge-ended' : ''}`}>{session.status}</span>
       </div>
-    </li>
+      <span className="session-card-link">Join board &rarr;</span>
+    </Link>
   )
 }
