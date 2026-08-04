@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiFetch, getCurrentUserEmail } from '../lib/api'
+import { apiFetch, getCurrentUserName } from '../lib/api'
 
 function CreateIcon() {
   return (
@@ -23,7 +23,7 @@ function JoinIcon() {
 
 export default function Home() {
   const navigate = useNavigate()
-  const email = getCurrentUserEmail()
+  const name = getCurrentUserName()
 
   const [workspaceName, setWorkspaceName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -137,7 +137,7 @@ export default function Home() {
         </div>
       </div>
 
-      <p className="home-greeting">Welcome back, {email}</p>
+      <p className="home-greeting">Welcome back, {name}</p>
     </div>
   )
 }

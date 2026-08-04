@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom'
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
 export default function Signup(){
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -16,7 +17,7 @@ export default function Signup(){
       const res = await fetch(`${API_BASE_URL}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ name, email, password })
       })
       if(!res.ok){
         const err = await res.json()
@@ -35,6 +36,14 @@ export default function Signup(){
         <h2 className="auth-title">Create your account</h2>
         <p className="auth-subtitle">Start running better retros with your team</p>
         <form onSubmit={submit}>
+          <div className="field">
+            <label className="field-label">Full name</label>
+            <input
+              className="input"
+              value={name}
+              onChange={e=>setName(e.target.value)}
+            />
+          </div>
           <div className="field">
             <label className="field-label">Email</label>
             <input

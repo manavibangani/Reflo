@@ -35,3 +35,7 @@ export function getCurrentUserId() {
 export function getCurrentUserEmail() {
   return decodeToken()?.email || null
 }
+
+export function getCurrentUserName() {
+  return sessionStorage.getItem('name') || decodeToken()?.name || null
+}

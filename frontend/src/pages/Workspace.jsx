@@ -131,7 +131,7 @@ export default function Workspace() {
                     checked={selectedMemberIds.includes(m.user_id)}
                     onChange={() => toggleMember(m.user_id)}
                   />
-                  {m.email || m.user_id}
+                  {m.name || m.email || m.user_id}
                 </label>
               ))}
             </div>

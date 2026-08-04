@@ -35,6 +35,7 @@ app.add_middleware(
 
 
 class SignupIn(BaseModel):
+    name: str
     email: EmailStr
     password: str
 
@@ -65,14 +66,16 @@ def signup(payload: SignupIn):
             raise HTTPException(status_code=400, detail="User already exists")
 
         hashed = bcrypt.hashpw(payload.password.encode(), bcrypt.gensalt()).decode()
-        insert = {"email": payload.email, "password": hashed}
+        insert = {"name": payload.name, "email": payload.email, "password": hashed}
         res = supabase.table("users").insert(insert).execute()
         # Supabase returns data on success
         if not res.data or len(res.data) == 0:
             raise HTTPException(status_code=500, detail="Failed to create user")
 
         user = res.data[0]
-        token = create_access_token({"sub": str(user.get("id")), "email": user.get("email")})
+        token = create_access_token(
+            {"sub": str(user.get("id")), "email": user.get("email"), "name": user.get("name")}
+        )
         return {"access_token": token, "token_type": "bearer"}
     except HTTPException:
         raise
@@ -84,15 +87,22 @@ def signup(payload: SignupIn):
 @app.post("/login")
 def login(payload: LoginIn):
     try:
-        resp = supabase.table("users").select("id,email,password").eq("email", payload.email).execute()
+        resp = (
+            supabase.table("users")
+            .select("id,email,password,name")
+            .eq("email", payload.email)
+            .execute()
+        )
         if not resp.data or len(resp.data) == 0:
             raise HTTPException(status_code=400, detail="Invalid credentials")
         user = resp.data[0]
         stored = user.get("password")
         if not stored or not bcrypt.checkpw(payload.password.encode(), stored.encode()):
             raise HTTPException(status_code=400, detail="Invalid credentials")
-        token = create_access_token({"sub": str(user.get("id")), "email": user.get("email")})
-        return {"access_token": token, "token_type": "bearer"}
+        token = create_access_token(
+            {"sub": str(user.get("id")), "email": user.get("email"), "name": user.get("name")}
+        )
+        return {"access_token": token, "token_type": "bearer", "name": user.get("name")}
     except HTTPException:
         raise
     except Exception as exc:
@@ -119,7 +129,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_
     payload = verify_token(credentials.credentials)
     if not payload or not payload.get("sub"):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return {"id": payload["sub"], "email": payload.get("email")}
+    return {"id": payload["sub"], "email": payload.get("email"), "name": payload.get("name")}
 
 
 class WorkspaceCreateIn(BaseModel):
@@ -224,12 +234,16 @@ def list_workspace_members(workspace_id: str, current_user: dict = Depends(get_c
         ensure_workspace_member(workspace_id, current_user["id"])
         resp = (
             supabase.table("workspace_members")
-            .select("user_id, users(email)")
+            .select("user_id, users(email, name)")
             .eq("workspace_id", workspace_id)
             .execute()
         )
         members = [
-            {"user_id": m["user_id"], "email": (m.get("users") or {}).get("email")}
+            {
+                "user_id": m["user_id"],
+                "email": (m.get("users") or {}).get("email"),
+                "name": (m.get("users") or {}).get("name"),
+            }
             for m in (resp.data or [])
         ]
         return members
