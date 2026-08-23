@@ -8,11 +8,18 @@ import Home from './pages/Home'
 import Workspace from './pages/Workspace'
 import SessionBoard from './pages/SessionBoard'
 import Dashboard from './pages/Dashboard'
+import FocusRoom from './pages/FocusRoom'
+import Landing from './pages/Landing'
 
 function RequireAuth({ children }) {
   const token = sessionStorage.getItem('token')
   if (!token) return <Navigate to="/login" replace />
   return children
+}
+
+function RootRoute() {
+  const token = sessionStorage.getItem('token')
+  return token ? <Home /> : <Landing />
 }
 
 function getInitialTheme() {
@@ -33,10 +40,11 @@ function AppShell({ theme, onToggleTheme }) {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
+        <Route path="/" element={<RootRoute />} />
         <Route path="/workspace/:id" element={<RequireAuth><Workspace /></RequireAuth>} />
         <Route path="/workspace/:id/dashboard" element={<RequireAuth><Dashboard /></RequireAuth>} />
         <Route path="/sessions/:id" element={<RequireAuth><SessionBoard /></RequireAuth>} />
+        <Route path="/focus-sessions/:id" element={<RequireAuth><FocusRoom /></RequireAuth>} />
       </Routes>
     </>
   )

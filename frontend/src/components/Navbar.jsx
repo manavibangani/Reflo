@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { apiFetch, getCurrentUserName } from '../lib/api'
+import { apiFetch, getCurrentUserName, getCurrentUserEmail } from '../lib/api'
 
 function SunIcon() {
   return (
@@ -33,6 +33,7 @@ export default function Navbar({ theme, onToggleTheme }) {
   const token = sessionStorage.getItem('token')
   const isLoggedIn = Boolean(token)
   const name = isLoggedIn ? getCurrentUserName() : null
+  const email = isLoggedIn ? getCurrentUserEmail() : null
 
   const [menuOpen, setMenuOpen] = useState(false)
   const [workspaces, setWorkspaces] = useState([])
@@ -74,7 +75,7 @@ export default function Navbar({ theme, onToggleTheme }) {
 
   return (
     <nav className="navbar">
-      <Link to={isLoggedIn ? '/' : '/login'} className="navbar-brand">
+      <Link to="/" className="navbar-brand">
         Reflo
       </Link>
       <div className="navbar-right">
@@ -91,7 +92,10 @@ export default function Navbar({ theme, onToggleTheme }) {
             </button>
             {menuOpen && (
               <div className="avatar-dropdown">
-                <div className="avatar-dropdown-email">{name}</div>
+                <div className="avatar-dropdown-identity">
+                  {name && <div className="avatar-dropdown-name">{name}</div>}
+                  <div className="avatar-dropdown-email">{email}</div>
+                </div>
                 <div className="avatar-dropdown-section-label">Workspaces</div>
                 <div className="avatar-dropdown-workspaces">
                   {loadingWorkspaces && <div className="avatar-dropdown-empty">Loading...</div>}

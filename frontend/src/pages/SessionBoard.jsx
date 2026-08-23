@@ -20,6 +20,7 @@ export default function SessionBoard() {
   const [cardText, setCardText] = useState('')
   const [cardColor, setCardColor] = useState(COLORS[0].value)
   const [openMenuCardId, setOpenMenuCardId] = useState(null)
+  const [labelInputs, setLabelInputs] = useState({})
 
   const wsRef = useRef(null)
   const menuRef = useRef(null)
@@ -57,6 +58,7 @@ export default function SessionBoard() {
         if (cancelled) return
         setSession(data.session)
         setCards(data.cards)
+        setLabelInputs(data.session.color_labels || {})
       } catch {
         if (!cancelled) setLoadError('Network error')
       } finally {
@@ -99,6 +101,9 @@ export default function SessionBoard() {
         setCards((prev) => prev.filter((c) => c.id !== msg.card_id))
       } else if (msg.type === 'session_ended') {
         setSession(msg.session)
+      } else if (msg.type === 'color_labels_updated') {
+        setSession((prev) => (prev ? { ...prev, color_labels: msg.color_labels } : prev))
+        setLabelInputs(msg.color_labels || {})
       } else if (msg.type === 'error') {
         setWsError(msg.message)
       }
@@ -126,6 +131,16 @@ export default function SessionBoard() {
 
   function handleToggleReaction(cardId, emoji) {
     sendMessage({ type: 'toggle_reaction', card_id: cardId, emoji })
+  }
+
+  function handleSaveColorLabels(e) {
+    e.preventDefault()
+    const color_labels = {}
+    for (const c of COLORS) {
+      const val = (labelInputs[c.value] || '').trim()
+      if (val) color_labels[c.value] = val
+    }
+    sendMessage({ type: 'update_color_labels', color_labels })
   }
 
   async function handleDeleteCard(cardId) {
@@ -163,7 +178,7 @@ export default function SessionBoard() {
 
   return (
     <div className="page">
-      <Link to="/" className="back-link">&larr; Back to workspaces</Link>
+      <Link to="/" className="back-link">Back to workspaces</Link>
       <div className="page-header" style={{ marginTop: 10 }}>
         <h2 style={{ margin: 0 }}>{session?.name}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -179,6 +194,46 @@ export default function SessionBoard() {
         Status: <span className={`badge ${isActive ? '' : 'badge-ended'}`}>{session?.status}</span>
       </p>
       {wsError && <p className="error-text">{wsError}</p>}
+
+      {(isCreator || Object.keys(session?.color_labels || {}).length > 0) && (
+        <section className="section" style={{ marginTop: 24 }}>
+          <h3 className="section-title">Define color meanings</h3>
+          <div className="card">
+            {isCreator ? (
+              <form onSubmit={handleSaveColorLabels}>
+                {COLORS.map((c) => (
+                  <div key={c.value} className="color-row">
+                    <span className="color-swatch" style={{ background: c.value }} />
+                    <span className="color-name">{c.emoji} {c.label}</span>
+                    <input
+                      className="input"
+                      placeholder="What does this color mean?"
+                      value={labelInputs[c.value] || ''}
+                      onChange={(e) =>
+                        setLabelInputs((prev) => ({ ...prev, [c.value]: e.target.value }))
+                      }
+                    />
+                  </div>
+                ))}
+                <button type="submit" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }}>
+                  Save labels
+                </button>
+              </form>
+            ) : (
+              COLORS.map((c) => {
+                const label = session?.color_labels?.[c.value]?.trim()
+                return (
+                  <div key={c.value} className="color-row">
+                    <span className="color-swatch" style={{ background: c.value }} />
+                    <span className="color-name">{c.emoji} {c.label}</span>
+                    {label && <span className="muted-text">— {label}</span>}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </section>
+      )}
 
       {isActive ? (
         <form onSubmit={handleAddCard} className="board-toolbar">
