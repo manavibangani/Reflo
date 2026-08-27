@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Misplaced root files
+public/
+src/
+index.html
+eslint.config.js
+package.json
+package-lock.json
+vite.config.js
+requirements.txt
+node_modules/
